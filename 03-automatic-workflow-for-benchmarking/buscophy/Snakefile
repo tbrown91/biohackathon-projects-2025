@@ -104,6 +104,72 @@ rule busco_summary:
 
 #Extract the nucleotide sequences from the gff files
 ### This whole rule needs a fix. Whatever tool I use, the nt sequences are inconsistent with the aa sequences. There are issues with missing stop codons at the ends, retained "N"s in the sequences, etc. I will have to look and see how the nt sequenes were extracted in BUSCO v5
+
+## use sqlite3 database for the sequence collection
+# load the results table from each busco run in an sqlite3 database
+rule busco_load_db:
+    input:
+        in_file = rules.busco_run.output.busco_table 
+    output:
+        database = "results/busco/{species}/run_{lineage}/busco_database.sqlite3"
+    params:
+        input_dir = "results/busco/{species}/run_{lineage}/"
+    threads:
+        1
+    conda:
+        "envs/sqlite3.yaml"
+    script:
+        "scripts/build_busco_db.py"
+
+## when all buscoruns are complete collect all the sqlite3 databases and merge them in one large database.
+# this one can be used for filtering and query
+
+def get_busco_database_inputs(FILES, busco_lineages):
+    inputs = []
+
+    inputs += expand(
+        "results/busco/{species}/run_{lineage}/busco_database.sqlite3",
+        species=FILES.species,
+        lineage=busco_lineages,
+    )
+
+    return inputs
+
+
+rule busco_collect_dbs:
+    input:
+       get_busco_database_inputs(FILES, busco_lineages)
+    output:
+        database = "results/busco/busco_database_collection.sqlite3" 
+    threads:
+        1
+    log:
+        "results/logs/busco/merge_busco_databases.log"
+    conda:
+        "envs/sqlite3.yaml"
+    script:
+        "scripts/merge_databases.py"
+
+
+checkpoint get_sequences:
+    input: 
+        database = "results/busco/busco_database_collection.sqlite3",
+    output:
+        directory("results/alignments/sequences/")
+    params:
+        fragmented = config["fragmented"],
+        min_taxa = config["min_spec"],
+       # min_genes=lambda wildcards, input: int(open(input.value_file).read().strip())
+    log:
+        "results/logs/busco/get_sequences.log"
+    conda:
+        "envs/sqlite3.yaml"
+    threads:
+        1
+    script:
+        "scripts/collect_sequences_from_db.py"
+
+
 rule get_nt:
     input:
         assembly=os.path.join(input_dir , "{species}.fas"),
@@ -144,6 +210,13 @@ for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequ
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/^>/>{wildcards.species}|/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
+
+for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.fna; do
+    # copy amino acids
+    cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+
+done
+
 """
 
 #Get the amino acid sequences derived for each gene
@@ -178,13 +251,9 @@ for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequ
 done
 
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.faa; do
-    # copy aminoacids
+    # copy amino acids
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
-    for j in $(grep -c '>' ${{file}}) do :
-        sed -i 's/^>/>{wildcards.species}_${{j}}/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
-    done
 
-    #sed -i 's/^>/>{wildcards.species}|/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
 
 """
@@ -380,6 +449,9 @@ rule paralogous_filtering:
 
 # Row 179 : Step get aa only copying from single copy --> add multi (in the same rule)
 # Currently, the sequence are renamed with the species name (as we only have one gene per file) --> Won't work for mutltiple gene
+
+# ==> Done
+# Procedure for choosing paralog :
 
 ### Add the option to run busco with the --augustus argument. There needs to be some change with the augustus config in the singularity image
 
