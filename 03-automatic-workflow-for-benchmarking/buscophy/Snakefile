@@ -57,6 +57,7 @@ rule busco_run:
         mode="genome",
         busco_out_dir="results/busco/{species}",
         lineages_dir="results/busco/lineages",
+        dwnld="results/busco",
         busco_args=busco_args
     output:
         busco_summary="results/busco/{species}/short_summary.specific.{lineage}.{species}.json",
@@ -367,9 +368,9 @@ def get_all_genetrees(wildcards):
 
 checkpoint collect_gene_trees:
     input:
-	get_all_genetrees
+        get_all_genetrees
     output:
-	directory("results/genetrees")
+        directory("results/genetrees")
     threads:
          1
     log:
@@ -399,7 +400,7 @@ rule check:
     input: process_genetrees
     output: touch("results/genetrees.ok")
     shell:
-	"""
+        """
 echo "all trees ready to process... "
 """
 ###
@@ -449,11 +450,11 @@ echo "all trees ready to process... "
 
 rule clean_header:
     input:
-	"results/phylo/busco_aa_alignments/{busco_EOG}_aa.fasta"
+        "results/phylo/busco_aa_alignments/{busco_EOG}_aa.fasta"
     output:
-	"results/phylo/busco_aa_alignments/{busco_EOG}_aa.clean.fasta"
+        "results/phylo/busco_aa_alignments/{busco_EOG}_aa.clean.fasta"
     shell:
-	"""
+        """
 # split the header and only keep the first two parts of the name
 awk '/^>/ {{split(substr($0,2),a,"_"); print ">"a[1]"_"a[2]}} !/^>/ {{print}}' {input} > {output}
 """
