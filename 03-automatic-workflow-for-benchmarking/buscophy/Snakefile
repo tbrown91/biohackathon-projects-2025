@@ -74,7 +74,7 @@ rule busco_run:
     shell:
         """
         busco -m {params.mode} -i {input.assembly} -o {params.busco_out_dir} {params.busco_args} --metaeuk --quiet \
-            -l {params.lineages_dir}/{wildcards.lineage} -c {threads} -f --offline &> {log}
+            -l {wildcards.lineage} --download_path {params.dwnld} -c {threads} -f --offline &> {log}
         """
 
 rule busco_summary:
@@ -105,69 +105,9 @@ rule busco_summary:
 #Extract the nucleotide sequences from the gff files
 ### This whole rule needs a fix. Whatever tool I use, the nt sequences are inconsistent with the aa sequences. There are issues with missing stop codons at the ends, retained "N"s in the sequences, etc. I will have to look and see how the nt sequenes were extracted in BUSCO v5
 
-## use sqlite3 database for the sequence collection
-# load the results table from each busco run in an sqlite3 database
-rule busco_load_db:
-    input:
-        in_file = rules.busco_run.output.busco_table 
-    output:
-        database = "results/busco/{species}/run_{lineage}/busco_database.sqlite3"
-    params:
-        input_dir = "results/busco/{species}/run_{lineage}/"
-    threads:
-        1
-    conda:
-        "envs/sqlite3.yaml"
-    script:
-        "scripts/build_busco_db.py"
 
-## when all buscoruns are complete collect all the sqlite3 databases and merge them in one large database.
-# this one can be used for filtering and query
-
-def get_busco_database_inputs(FILES, busco_lineages):
-    inputs = []
-
-    inputs += expand(
-        "results/busco/{species}/run_{lineage}/busco_database.sqlite3",
-        species=FILES.species,
-        lineage=busco_lineages,
-    )
-
-    return inputs
-
-
-rule busco_collect_dbs:
-    input:
-       get_busco_database_inputs(FILES, busco_lineages)
-    output:
-        database = "results/busco/busco_database_collection.sqlite3" 
-    threads:
-        1
-    log:
-        "results/logs/busco/merge_busco_databases.log"
-    conda:
-        "envs/sqlite3.yaml"
-    script:
-        "scripts/merge_databases.py"
-
-
-checkpoint get_sequences:
-    input: 
-        database = "results/busco/busco_database_collection.sqlite3",
-    output:
-        directory("results/alignments/sequences/")
-    params:
-        fragmented = config["fragmented"],
-        min_taxa = config["min_spec"],
-       # min_genes=lambda wildcards, input: int(open(input.value_file).read().strip())
-    log:
-        "results/logs/busco/get_sequences.log"
-    conda:
-        "envs/sqlite3.yaml"
-    threads:
-        1
-    script:
-        "scripts/collect_sequences_from_db.py"
+### faster solution with sqlite3 database can be added later. 
+### for better overview and quick adjustments we keep the bash/shell solution and develop it further
 
 
 rule get_nt:
@@ -208,13 +148,15 @@ fi
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.fna; do
     # copy nt files 
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
-    sed -i 's/^>/>{wildcards.species}|/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
 
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.fna; do
     # copy amino acids
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
-
+    sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
 
 """
@@ -239,7 +181,8 @@ if [ -n "$FRAG" ] ; then
     for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/fragmented_busco_sequences/*.faa; do
         # copy aminoacids
     	cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
-        sed -i 's/^>/>{wildcards.species}|/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+        sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+        sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     done
 fi
 
@@ -247,13 +190,15 @@ fi
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.faa; do
     # copy aminoacids
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
-    sed -i 's/^>/>{wildcards.species}|/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+        sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+        sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
 
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.faa; do
     # copy amino acids
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
-
+    sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
 
 """
@@ -348,23 +293,6 @@ rule busco_mafft:
 ( mafft-linsi --thread {threads} {input} > {output} )&>{log}
         """
 
-rule busco_mafftnt:
-    input:
-        nt_seq="results/phylo/busco_nt_collection/{busco_EOG}_nt.fasta"
-    output:
-        nt_alignment="results/phylo/busco_nt_alignments/{busco_EOG}_nt.fasta"
-    threads: 1
-    log:
-        "results/logs/phylo/mafft/{busco_EOG}.nt.log"
-    conda:
-        "envs/mafft.yaml"
-    container:
-        "docker://pegi3s/mafft:7.505"
-    shell:
-        """
-( mafft-linsi --thread {threads} {input.nt_seq} > {output.nt_alignment} )&>{log}
-        """
-
 rule busco_trim:
     input:
         "results/phylo/busco_aa_alignments/{busco_EOG}_aa.fasta"
@@ -380,20 +308,7 @@ rule busco_trim:
 trimal -in {input} -out {output}
         """
 
-rule busco_trim_nt:
-    input:
-        "results/phylo/busco_nt_alignments/{busco_EOG}_nt.fasta"
-    output:
-        "results/phylo/busco_nt_alignments_trim/{busco_EOG}_nt.fasta"
-    threads: 1
-    conda:
-        "envs/trimal.yaml"
-    container:
-        "docker://reslp/trimal:1.4.1"
-    shell:
-        """
-trimal -in {input} -out {output}
-        """
+
 
 # Rule to generate one tree per gene
 
@@ -446,26 +361,19 @@ rule paralogous_filtering:
 
 ## Things left to do :
 ### Add multi-copy genes and implement a procedure for choosing the paralogs
-
-# Row 179 : Step get aa only copying from single copy --> add multi (in the same rule)
-# Currently, the sequence are renamed with the species name (as we only have one gene per file) --> Won't work for mutltiple gene
-
-# ==> Done
 # Procedure for choosing paralog :
 
 ### Add the option to run busco with the --augustus argument. There needs to be some change with the augustus config in the singularity image
+(Lead by the Australian team)
 
 ### Modularise the pipeline to help tidy it up and allow for plug-and-play configuration
 
 ### Tidy up the conda envs - at the moment these have no version numbers. They should be consistent with the singularity/docker images.
 
+### Add the end of the code (supermatrix and busco_iqtree)
 
 
-
-
-
-
-
+## TODO : Aggregate outputs of paralogous_filtering for the supermatrix
 def aggregate_EOGs_aa(wildcards):
     checkpoint_output = checkpoints.collect_busco.get(**wildcards).output[0]
     return expand("results/phylo/busco_aa_alignments_trim/{busco_EOG}_aa.fasta",
@@ -508,10 +416,9 @@ rule busco_iqtree:
     shell:
         """
 ( iqtree -s {input.sequence} --prefix {params.out_prefix} -T AUTO --threads-max {threads} -m {params.model} -msub nuclear -B 1000 -alrt 1000 ) &> {log}
-
-
         """
 # -m {params.model}
+
 
 rule overview:
     input:
@@ -532,48 +439,6 @@ python3 ./scripts/final_overview.py {params.in_dir} {output.table}
 """
 # we can also try script function!
 
-def aggregate_EOGs_nt(wildcards):
-    checkpoint_output = checkpoints.collect_busco.get(**wildcards).output[1]
-    return expand("results/phylo/busco_nt_alignments_trim/{busco_EOG}_nt.fasta",
-           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_nt.fasta",)).busco_EOG)
-
-rule busco_supermatrix_nt:
-    input:
-        aggregate_EOGs_nt 
-    output:
-        matrix="results/phylo/supermatrix_nt.fasta",
-        partitions="results/phylo/partitions_nt.txt"
-    threads: 1
-    log:
-        "results/logs/phylo/supermatrix_nt.log"
-    conda:
-        "envs/amas.yaml"
-    container:
-        "https://depot.galaxyproject.org/singularity/amas%3A1.0--pyh864c0ab_0"
-    shell:
-        """
-( AMAS.py concat -f fasta -d dna --concat-out {output.matrix} --concat-part {output.partitions} -i {input}  ) &> {log}
-"""
-
-rule busco_iqtree_nt:
-    input:
-        sequence="results/phylo/supermatrix_nt.fasta",      
-    output:
-        "results/phylo/busco_phylo_nt.treefile"
-    threads: config['max_threads']
-    params:
-        out_prefix="results/phylo/busco_phylo_nt",
-        model="GTR" # might need to do real model testing... 
-    conda:
-        "envs/iqtree.yaml"
-    container:
-        "https://depot.galaxyproject.org/singularity/iqtree%3A3.0.1--h503566f_0"
-    log:
-        "results/logs/phylo/iqtree_nt.log"
-    shell:
-        """
-(iqtree -s {input.sequence} --prefix {params.out_prefix} -T AUTO --threads-max {threads} -m {params.model} -msub nuclear -B 1000 -alrt 1000 ) &> {log}
-        """
 
 onsuccess:
     print("Workflow finished successfully!\nThank you for using buscophy.")
@@ -584,3 +449,85 @@ onsuccess:
 onerror:
     print("An error occurred!")
     print("See the log file for more details ...")
+
+
+
+
+## The nt steps of the pipeline are currently commented out.
+# Then, it should be integrated again with the output of paralogous filtering.
+
+#rule busco_mafftnt:
+#    input:
+#        nt_seq="results/phylo/busco_nt_collection/{busco_EOG}_nt.fasta"
+#    output:
+#        nt_alignment="results/phylo/busco_nt_alignments/{busco_EOG}_nt.fasta"
+#    threads: 1
+#    log:
+#        "results/logs/phylo/mafft/{busco_EOG}.nt.log"
+#    conda:
+#        "envs/mafft.yaml"
+#    container:
+#        "docker://pegi3s/mafft:7.505"
+#    shell:
+#        """
+#( mafft-linsi --thread {threads} {input.nt_seq} > {output.nt_alignment} )&>{log}
+#        """
+
+#rule busco_trim_nt:
+#    input:
+#        "results/phylo/busco_nt_alignments/{busco_EOG}_nt.fasta"
+#    output:
+#        "results/phylo/busco_nt_alignments_trim/{busco_EOG}_nt.fasta"
+#    threads: 1
+#    conda:
+#        "envs/trimal.yaml"
+#    container:
+#        "docker://reslp/trimal:1.4.1"
+#    shell:
+#        """
+#trimal -in {input} -out {output}
+#        """
+
+
+#def aggregate_EOGs_nt(wildcards):
+#    checkpoint_output = checkpoints.collect_busco.get(**wildcards).output[1]
+#    return expand("results/phylo/busco_nt_alignments_trim/{busco_EOG}_nt.fasta",
+#           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_nt.fasta",)).busco_EOG)
+
+#rule busco_supermatrix_nt:
+#    input:
+#        aggregate_EOGs_nt 
+#    output:
+#        matrix="results/phylo/supermatrix_nt.fasta",
+#        partitions="results/phylo/partitions_nt.txt"
+#    threads: 1
+#    log:
+#        "results/logs/phylo/supermatrix_nt.log"
+#    conda:
+#        "envs/amas.yaml"
+#    container:
+#        "https://depot.galaxyproject.org/singularity/amas%3A1.0--pyh864c0ab_0"
+#    shell:
+#        """
+#( AMAS.py concat -f fasta -d dna --concat-out {output.matrix} --concat-part {output.partitions} -i {input}  ) &> {log}
+#"""
+
+#rule busco_iqtree_nt:
+#    input:
+#        sequence="results/phylo/supermatrix_nt.fasta",      
+#    output:
+#        "results/phylo/busco_phylo_nt.treefile"
+#    threads: config['max_threads']
+#    params:
+#        out_prefix="results/phylo/busco_phylo_nt",
+#        model="GTR" # might need to do real model testing... 
+#    conda:
+#        "envs/iqtree.yaml"
+#    container:
+#        "https://depot.galaxyproject.org/singularity/iqtree%3A3.0.1--h503566f_0"
+#    log:
+#        "results/logs/phylo/iqtree_nt.log"
+#    shell:
+#        """
+#(iqtree -s {input.sequence} --prefix {params.out_prefix} -T AUTO --threads-max {threads} -m {params.model} -msub nuclear -B 1000 -alrt 1000 ) &> {log}
+#        """

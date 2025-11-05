@@ -1,5 +1,5 @@
-input_dir: 'species'
-lineage: 'viridiplantae_odb12'
+input_dir: 'input_test'
+lineage: 'lepidoptera_odb12'
 fragmented: 'no'
 min_spec: 4
 min_genes: 3

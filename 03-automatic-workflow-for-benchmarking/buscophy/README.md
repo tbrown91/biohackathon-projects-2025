@@ -36,22 +36,29 @@ mkdir input_test
 cd input_test/
 
 # download some lepidoptera genomes
-# the original download adress from lepbase.org was not available anymore. This is currently located here:
+# the original download address from lepbase.org was not available anymore. This is currently located here:
 # https://lepbase.cog.sanger.ac.uk/archive/v4/
-wget "https://lepbase.cog.sanger.ac.uk/archive/v4/sequence/Amyelois_transitella_v1_-_scaffolds.fa.gz"
 wget "https://lepbase.cog.sanger.ac.uk/archive/v4/sequence/Bicyclus_anynana_v1.2_-_scaffolds.fa.gz"
 wget "https://lepbase.cog.sanger.ac.uk/archive/v4/sequence/Bombyx_mori_ASM15162v1_-_scaffolds.fa.gz"
 wget "https://lepbase.cog.sanger.ac.uk/archive/v4/sequence/Callimorpha_dominula_k41_-_scaffolds.fa.gz"
 wget "https://lepbase.cog.sanger.ac.uk/archive/v4/sequence/Calycopis_cecrops_v1.1_-_scaffolds.fa.gz"
 wget "https://lepbase.cog.sanger.ac.uk/archive/v4/sequence/Glyphotaelius_pellucidus_k51_-_scaffolds.fa.gz"
 
-gunzip *fa.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/038/095/585/GCA_038095585.1_ASM3809558v1/GCA_038095585.1_ASM3809558v1_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/032/362/555/GCF_032362555.1_ilAmyTran1.1/GCF_032362555.1_ilAmyTran1.1_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/963/853/865/GCA_963853865.1_ilHelHell1.1/GCA_963853865.1_ilHelHell1.1_genomic.fna.gz
+
+
+gunzip *gz
 
 #rename genome assemblies
-mv Amyelois_transitella_v1_-_scaffolds.fa Amyelois_transitella.fas 
 mv Bicyclus_anynana_v1.2_-_scaffolds.fa Bicyclus_anynana.fas
 mv Bombyx_mori_ASM15162v1_-_scaffolds.fa Bombyx_mori.fas 
 mv Callimorpha_dominula_k41_-_scaffolds.fa Callimorpha_dominula.fas 
 mv Calycopis_cecrops_v1.1_-_scaffolds.fa Calycopis_cecrops.fas 
-mv Glyphotaelius_pellucidus_k51_-_scaffolds.fa Glyphotaelius_pellucidus.fas 
+mv Glyphotaelius_pellucidus_k51_-_scaffolds.fa Glyphotaelius_pellucidus.fas
+mv GCA_038095585.1_ASM3809558v1_genomic.fna Grapholita_dimorpha.fas
+mv GCF_032362555.1_ilAmyTran1.1_genomic.fna Amyelois_transitella.fas
+mv GCA_963853865.1_ilHelHell1.1_genomic.fna Helleia_helle.fas
+
 ```
