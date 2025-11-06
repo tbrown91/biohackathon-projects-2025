@@ -2,5 +2,5 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - iqtree
-  - gotree
+  - iqtree=3.0.1
+  - gotree=0.5.0
