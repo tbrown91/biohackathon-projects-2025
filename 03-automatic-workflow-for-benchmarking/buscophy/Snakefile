@@ -26,8 +26,9 @@ rule all:
     input:
         #"results/phylo/overview_abspres.csv", # make sure script is in environment
         "results/busco/summary/busco_figure.png",
-        "results/phylo/busco_phylo.treefile",
+        #"results/phylo/busco_phylo.treefile",
         "results/genetrees.ok",
+        "results/adjustedtrees.ok"
         #"results/phylo/busco_phylo_nt.treefile"
 
 ### I would suggest adding a rule here to convert all assemblies into upper-case letters. This will remove issues downstream with nt/aa differences
@@ -315,8 +316,6 @@ rule busco_trim:
 (trimal -in {input} -out {output} )&>{log}
         """
 
-
-
 # Rule to generate one tree per gene
 
 rule busco_geneTrees:
@@ -409,28 +408,67 @@ echo "all trees ready to process... "
 ### This would be good to have as an input to the script
 ### Figure conda / singularity environments needs
 
-
 rule paralogous_filtering:
-   input:
+    input:
         tree_file="results/phylo/busco_aa_gene_trees/{busco_EOG}_aa.treefile",
         alignment_file="results/phylo/busco_aa_alignments_trim/{busco_EOG}_aa.fasta"
     output:
-        mafft_clipkit="results/phylo/paralogous_filtering/*.faa.filtered.mafft.clipkit",
-        mafft_clipkit_original="results/phylo/paralogous_filtering/*.faa.filtered.mafft.clipkit.original",
-        mafft_clipkit_removed="results/phylo/paralogous_filtering/*.faa.filtered.mafft.clipkit.removed",
-        extended_tree_file="results/phylo/paralogous_filtering/*.faa.mafft.clipkit.extended_treefile.tre"
+        adjusted_tree="results/phylo/busco_aa_adjusted_trees/{busco_EOG}_aa_adjusted.treefile",
+        paralog_report="results/phylo/busco_aa_adjusted_trees/{busco_EOG}_aa_paralog.txt"
     threads: 1
     log:
-        "results/logs/paralogous_filtering.log"
+        "results/logs/paralogous_filtering.{busco_EOG}.log"
     conda:
         "envs/paralog.yaml"
     container:
         "https://depot.galaxyproject.org/singularity/amas%3A1.0--pyh864c0ab_0"
     shell:
         """
-( python3 Paralogous_filtering.py {input.tree_file} {input.alignment_file} ) &> {log}
+( python3 Paralogous_filtering.py {input.tree_file} {input.alignment_file} {output.adjusted_tree} {output.paralog_report}) &> {log}
 """
 
+def get_all_paralogtrees(wildcards):
+    checkpoint_output = checkpoints.collect_busco.get(**wildcards).output[0]
+    return expand("results/phylo/busco_aa_adjusted_trees/{busco_EOG}_aa_adjusted.treefile",
+           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa.fasta",)).busco_EOG)
+
+
+checkpoint collect_adjusted_trees:
+    input:
+        get_all_paralogtrees
+    output:
+        directory("results/adjustedtrees")
+    threads:
+         1
+    log:
+       "results/logs/collect_adjustedtrees.log"
+    shell:
+       """
+[ ! -d {output} ] && mkdir -p {output}
+( for file in {input}; do
+    if [ -s $file ]; then
+        cp $file {output}/ ;
+        echo "$file is nice tree ;-)"
+    else
+        echo "$file is empty"
+    fi
+done )&>{log}
+"""
+
+def process_adjustedtrees(wildcards):
+    checkpoint_output = checkpoints.collect_adjusted_trees.get(**wildcards).output[0]
+    return expand("results/adjustedtrees/{busco_EOG}_aa_adjusted.treefile",
+           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa_adjusted.treefile",)).busco_EOG)
+
+### we can use this process_genetrees as input for the paralogous rule to make sure that only non-empty trees are passed... 
+
+rule check_adjusted:
+    input: process_adjustedtrees
+    output: touch("results/adjustedtrees.ok")
+    shell:
+        """
+echo "all trees ready to process... "
+"""
 ## Things left to do :
 ### Add multi-copy genes and implement a procedure for choosing the paralogs
 # Procedure for choosing paralog :
@@ -465,9 +503,6 @@ def aggregate_EOGs_aa(wildcards):
     checkpoint_output = checkpoints.collect_busco.get(**wildcards).output[0]
     return expand("results/phylo/busco_aa_alignments/{busco_EOG}_aa.clean.fasta",
            busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa.fasta",)).busco_EOG)
-
-
-
 
 rule busco_supermatrix:
     input:

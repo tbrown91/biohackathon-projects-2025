@@ -27,7 +27,10 @@ usage: python3 Paralogous_filtering.py  directory_with_trees directory_with_-cor
 
 # First argument for a tree directory, second argument for a alignment directory
 tree_file = sys.argv[1]
-alignment_file =  sys.argv[2]
+alignment_file = sys.argv[2]
+alignment_out = sys.argv[3]
+paralog_seqs = sys.argv[4]
+paralog_stats = sys.argv[5]
 
 def modify_alignment_headers(file_path):
     temp_file = file_path + ".tmp"
@@ -97,7 +100,7 @@ def load_and_root_tree(tfile, afile=None):
     t.standardize()
     return t
 
-def deal_with_inparalogs(my_inpar,al_f):
+def deal_with_inparalogs(my_inpar,al_f,aoutfile,poutfile):
     '''
     From a provided list of inparalog sequences keeps the longest sequence only. It also creates a file with deleted
     inparaloug sequences.
@@ -105,23 +108,24 @@ def deal_with_inparalogs(my_inpar,al_f):
     :return: nothing
     '''
     records = list(SeqIO.parse(al_f, "fasta"))
-
+    #print(records)
+    #print(my_inpar)
     target_records = [rec for rec in records if rec.id in my_inpar]
     other_records = [rec for rec in records if rec.id not in my_inpar]
     removed_records = []
     base_name, ext = os.path.splitext(al_f)
     removed_file = f"{base_name}.removed"
-
+    #print(target_records)
     if target_records:
         longest_target = max(target_records, key=lambda r: len(r.seq.replace("-","").replace("X","")))# maybe not always the case
         removed_records = [rec for rec in target_records if rec.id != longest_target.id]
-
         final_records = other_records + [longest_target]
 
-        SeqIO.write(final_records, al_f, "fasta")
+        SeqIO.write(final_records, aoutfile, "fasta")
     num_removed = 0
+
     if removed_records:
-        with open(removed_file, "a") as rem_f:
+        with open(poutfile, "a") as rem_f:
             num_removed = SeqIO.write(removed_records, rem_f, "fasta")
     
     return num_removed         
@@ -163,7 +167,7 @@ def keep_on_branch(child1,child2):
     else:
         return "child2"
 
-def deal_with_outparalogs(child1,child2,alignment_filename):
+def deal_with_outparalogs(child1,child2,alignment_filename,aoutfile,poutfile):
     '''
     From provided branches with outparaloug sequences keeps the branch with the highest number of sequences. It also creates a file with deleted
     outparaloug sequences.
@@ -186,15 +190,15 @@ def deal_with_outparalogs(child1,child2,alignment_filename):
     print("Removed records: ", removed_records)
     filtered_alignment = MultipleSeqAlignment(filtered_records)
 
-    AlignIO.write(filtered_alignment, alignment_filename, "fasta")
+    AlignIO.write(filtered_alignment, aoutfile, "fasta")
     num_removed = 0
     if removed_records:
-        with open(removed_file, "a") as rem_f:
+        with open(poutfile, "a") as rem_f:
             num_removed = SeqIO.write(removed_records, rem_f, "fasta")
     return num_removed        
 
 
-def detect_duplication_events(t,al_f):
+def detect_duplication_events(t,al_f,aoutfile,poutfile):
     '''
     Modifies a tree by determining duplication and speciation events . It also call for functions to remove in- and outparalogous from alignments
     :param t, al_f: tree file, alignment file
@@ -218,13 +222,13 @@ def detect_duplication_events(t,al_f):
                 print("Inparalogy was detected!")
                 my_inparalogy = ev.in_seqs.union(ev.out_seqs)
                 print(my_inparalogy)
-                inparalogs_removed_per_gene += deal_with_inparalogs(my_inparalogy,al_f)
-
+                inparalogs_removed_per_gene += deal_with_inparalogs(my_inparalogy,al_f,aoutfile,poutfile)
+                print(inparalogs_removed_per_gene)
             else:
                 print("Outparalogy was detected!")
                 print(ev.in_seqs)
                 print(ev.out_seqs)
-                outparalogs_removed_per_gene += deal_with_outparalogs(ev.in_seqs,ev.out_seqs,al_f)
+                outparalogs_removed_per_gene += deal_with_outparalogs(ev.in_seqs,ev.out_seqs,aoutfile,poutfile)
 
         else:
 
@@ -232,71 +236,78 @@ def detect_duplication_events(t,al_f):
 
     return inparalogs_removed_per_gene, outparalogs_removed_per_gene
 
-def view_tree(tfile, afile):
+def view_tree(tfile, afile, aoutfile, poutfile, soutfile):
     create_output_folders()
     # get the lists of all files in the directories
-    tree_list = os.listdir(tfile)
-    alignment_list = os.listdir(afile)
+    ## tree_list = os.listdir(tfile)
+    ## alignment_list = os.listdir(afile)
     total_seq_numb = 0
     total_inparalogs_removed = 0
     total_outparalogs_removed = 0
-    for tree_file in tree_list:
-        # look for the treefile extension
-        if tree_file.endswith(".treefile"): # efile"):
-            for alignment_file in alignment_list:
-                # check if the alignment file corresponds to the tree file
-                tree_file_check = tree_file.split(".")[0].split("_")
-                tree_file_check_str =  '_'.join(tree_file_check[:2])
-                alignment_file_check = alignment_file.split(".")[0].split("_")
-                alignment_file_check_str =  '_'.join(alignment_file_check[:2])
-                if alignment_file_check_str == tree_file_check_str:
-                    print(tree_file_check_str)
-                    tree_file = os.path.join(tfile, tree_file)
-                    alignment_file = os.path.join(afile, alignment_file)
-                    modify_alignment_headers(alignment_file)
-                    # load and root trees to a midpoint using ete4
-                    t = load_and_root_tree(tree_file, alignment_file)
-                    if t is None:
-                        continue
-                    # preserve the original alignment file
-                    base_name, ext = os.path.splitext(alignment_file)
-                    alignment_file_copy = f"{base_name}.original"
-                    shutil.copy(alignment_file, alignment_file_copy)
-                    # detecte speciation/duplication events and remove in- and outparalogous from the alignment
-                    inpar_gene, out_par_gene = detect_duplication_events(t,alignment_file)
-                    # save extended newick trees with the duplication/speciation info
-                    output_dir = Path("paralogy_output") / "extended_trees"
-                    base_name = Path(tree_file).stem
-                    output_path = output_dir / f"{base_name}.extended_treefile"
-                    t.write(output_path,props=['evoltype'])
+    ## for tree_file in tree_list:
+    tree_file=tfile
+    # look for the treefile extension
+    #if tree_file.endswith(".treefile"): # efile"):
+    ## for alignment_file in alignment_list:
+    alignment_file=afile
+        # check if the alignment file corresponds to the tree file
+        #tree_file_check = tree_file.split(".")[0].split("_")
+        #tree_file_check_str =  '_'.join(tree_file_check[:2])
+        #alignment_file_check = alignment_file.split(".")[0].split("_")
+        #alignment_file_check_str =  '_'.join(alignment_file_check[:2])
+        #if alignment_file_check_str == tree_file_check_str:
+        #print(tree_file_check_str)
+        #tree_file = os.path.join(tfile, tree_file)
+        #alignment_file = os.path.join(afile, alignment_file)
+    modify_alignment_headers(alignment_file)
+        # load and root trees to a midpoint using ete4
+    t = load_and_root_tree(tree_file, alignment_file)
+        #if t is None:
+        #    continue
+        # preserve the original alignment file
+    base_name, ext = os.path.splitext(alignment_file)
+    #alignment_file_copy = f"{base_name}.original"
+    #shutil.copy(alignment_file, alignment_file_copy)
+        # detecte speciation/duplication events and remove in- and outparalogous from the alignment
+    inpar_gene, out_par_gene = detect_duplication_events(t,alignment_file,aoutfile,poutfile)
+        # save extended newick trees with the duplication/speciation info
+        #output_dir = Path("paralogy_output") / "extended_trees"
+        #base_name = Path(tree_file).stem
+        ## replace with input filename above
+    #output_path = aoutfile
 
-                    ### here we are calculating paralogy statistic ###
-                    # count all sequences in the alignments
-                    seq_numb = count_all_sequences(alignment_file)
-                    total_seq_numb += seq_numb
-                    # count all in/outparalogs
-                    total_inparalogs_removed += inpar_gene
-                    total_outparalogs_removed += out_par_gene
-                    # count in/outparalogs per gene
-                    with open("paralogy_output/paralogy_statistic_per_gene.txt", "a") as par_stat:
-                        inpar_prop = inpar_gene/seq_numb
-                        outpar_prop = out_par_gene/seq_numb
-                        par_stat.write(f"{alignment_file_check_str}\t{seq_numb}\t{inpar_gene}\t{out_par_gene}\t{inpar_prop}\t{outpar_prop}\n")
-                    # move file to the output directory
-                    source_file = alignment_file
-                    dest_dir = "paralogy_output/paralogs_free_alignments"
-                    filename = os.path.basename(source_file)
-                    dest_file = os.path.join(dest_dir, filename)
-                    shutil.move(source_file, dest_file)
-    with open("paralogy_output/paralogy_summary.txt", "a") as par_sum:
-        prop_inp = total_inparalogs_removed/total_seq_numb
-        prop_out = total_outparalogs_removed/total_seq_numb
-        par_sum.write(f"Paralogy summary\n")
-        par_sum.write(f"Total number of sequences\tTotal number of inparalogs\tTotal number of outparalogs\tProportion of inparalogs\tProportion of outparalogs\n")
-        par_sum.write(f"{total_seq_numb}\t{total_inparalogs_removed}\t{total_outparalogs_removed}\t{prop_inp}\t{prop_out}\n")
+    #t.write(toutfile,props=['evoltype'])
 
+        ### here we are calculating paralogy statistic ###
+        # count all sequences in the alignments
+    seq_numb = count_all_sequences(alignment_file)
+    total_seq_numb += seq_numb
+        # count all in/outparalogs
+    total_inparalogs_removed += inpar_gene
+    total_outparalogs_removed += out_par_gene
+        # count in/outparalogs per gene
+        #with open("paralogy_output/{base_name}_paralogy_statistic_per_gene.txt", "a") as par_stat:
+    with open(soutfile, "a") as par_stat:
+        inpar_prop = inpar_gene/seq_numb
+        outpar_prop = out_par_gene/seq_numb
+        par_stat.write(f"Name\tSequence_number\tIn_paralogs\tOut_paralogs\tIn_paralog_proportion\tOut_paralog_proportion\n")
+        par_stat.write(f"{base_name}\t{seq_numb}\t{inpar_gene}\t{out_par_gene}\t{inpar_prop}\t{outpar_prop}\n")
+        # move file to the output directory
+        ## Can probably remove this, just use the input filenames
+        #source_file = alignment_file
+        #dest_dir = "paralogy_output/{base_name}_paralogs_free_alignments"
+        #filename = os.path.basename(source_file)
+        #dest_file = os.path.join(dest_dir, filename)
+        #shutil.move(source_file, dest_file)
+    ## I would suggest removing this section
+    #with open("paralogy_output/{base_name}_paralogy_summary.txt", "a") as par_sum:
+    #    prop_inp = total_inparalogs_removed/total_seq_numb
+    #    prop_out = total_outparalogs_removed/total_seq_numb
+    #    par_sum.write(f"Paralogy summary\n")
+    #    par_sum.write(f"Total number of sequences\tTotal number of inparalogs\tTotal number of outparalogs\tProportion of inparalogs\tProportion of outparalogs\n")
+    #    par_sum.write(f"{total_seq_numb}\t{total_inparalogs_removed}\t{total_outparalogs_removed}\t{prop_inp}\t{prop_out}\n")
 
 #excute only if called from the command line
 if __name__ == '__main__':
-        view_tree(sys.argv[1], sys.argv[2])
+        view_tree(sys.argv[1], sys.argv[2], sys.argv[3],sys.argv[4],sys.argv[5])
 
