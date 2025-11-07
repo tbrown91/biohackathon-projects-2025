@@ -150,16 +150,20 @@ fi
 #done
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.fna; do
     # copy nt files 
+    if [ -f "${{file}}" ]; then
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    fi
 done
 
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.fna; do
     # copy amino acids
+    if [ -f "${{file}}" ]; then
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    fi
 done
 
 """
@@ -183,28 +187,34 @@ FRAG={params.fragmented}
 if [ -n "$FRAG" ] ; then
     for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/fragmented_busco_sequences/*.faa; do
         # copy aminoacids
+        if [ -f "${{file}}" ]; then
     	cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
         sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
         sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
         sed -i 's/:/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+        fi
     done
 fi
 
 # for complete busco genes
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.faa; do
     # copy aminoacids
+    if [ -f "${{file}}" ]; then
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
         sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
         sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
         sed -i 's/:/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    fi
 done
 
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.faa; do
     # copy amino acids
+    if [ -f "${{file}}" ]; then
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/:/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
+    fi
 done
 
 """
