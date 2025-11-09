@@ -1,7 +1,7 @@
-input_dir: 'input_test'
-lineage: 'lepidoptera_odb12'
+input_dir: 'mammals'
+lineage: 'eukaryota_odb12'
 fragmented: 'no'
 min_spec: 4
 min_genes: 3
-max_threads: 40
+max_threads: 10
 busco_args: "--skip_bbtools" #default: --metaeuk to get both aa and nt files. Would also like to include --augustus

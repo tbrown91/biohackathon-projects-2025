@@ -23,9 +23,9 @@ Create base conda environment with
 
 I have tested this with conda and singularity. It should also work with apptainer
 
-`snakemake --use-conda --cores 40 #--conda-frontend conda`
+`snakemake --use-conda --cores 40 --resources write_slots=1`
 
-`snakemake --cores 40 --use-singularity --singularity-args="--cleanenv --no-home --bind /path/to/cwd/"`
+`snakemake --cores 40 --resources write_slots=1 --use-singularity --singularity-args="--cleanenv --no-home --bind /path/to/cwd/"`
 
 At the moment all parameters should be changed in the `config.yaml` file including the busco lineage, minimum number of species and genes and maximum number of threads per job.
 
