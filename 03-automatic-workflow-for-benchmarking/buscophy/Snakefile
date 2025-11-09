@@ -25,10 +25,8 @@ localrules: all
 rule all:
     input:
         #"results/phylo/overview_abspres.csv", # make sure script is in environment
-        "results/busco/summary/busco_figure.png",
-        #"results/phylo/busco_phylo.treefile",
-        "results/genetrees.ok",
-        "results/adjustedtrees.ok"
+        #"results/busco/summary/busco_summary.done",
+        "results/phylo/busco_phylo.treefile"
         #"results/phylo/busco_phylo_nt.treefile"
 
 ### I would suggest adding a rule here to convert all assemblies into upper-case letters. This will remove issues downstream with nt/aa differences
@@ -87,7 +85,7 @@ rule busco_summary:
             species=FILES.species 
             )
     output:
-        "results/busco/summary/busco_figure.png"
+        "results/busco/summary/busco_summary.done"
     params:
         dir="results/busco/summary/"
     threads: 1
@@ -99,6 +97,7 @@ rule busco_summary:
         """
         for file in {input}; do cp $file {params.dir}; done
         busco --plot {params.dir}
+        touch {output}
         """
 
 #################
@@ -119,18 +118,16 @@ rule get_nt:
         results="results/busco/{species}/run_{lineage}/full_table.tsv"
     output:
         touch("results/phylo/{species}.{lineage}.nt_collection.log")
+    resources:
+        write_slots = 1
     params:
         phylo_dir="results/phylo/busco_sequences",
         fragmented="yes" if config["fragmented"]=="yes" else [],
     threads: 1
-    conda:
-        "envs/gffread.yaml"
-    container:
-        "docker://dceoy/gffread:latest"
     shell:
         """
 
-[ ! -d {params.phylo_dir} ] && mkdir -p {params.phylo_dir}
+#[ ! -d {params.phylo_dir} ] && mkdir -p {params.phylo_dir}
 
 # for fragmented genes
 FRAG={params.fragmented}
@@ -148,20 +145,23 @@ fi
 #    gffread -W -x {params.phylo_dir}/{wildcards.species}_${{base}}.fna -g {input.assembly} "$file"
 #    sed -i 's/^>/>{wildcards.species}|/g' {params.phylo_dir}/{wildcards.species}_${{base}}.fna
 #done
+if compgen -G "results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.fna" > /dev/null; then
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.fna; do
     # copy nt files 
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
+fi
 
+if compgen -G "results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.fna" > /dev/null; then
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.fna; do
     # copy amino acids
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/^>/>{wildcards.species}_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
-
+fi
 """
 
 #Get the amino acid sequences derived for each gene
@@ -173,6 +173,8 @@ rule get_aa:
     params:
         phylo_dir="results/phylo/busco_sequences",
         fragmented="yes" if config["fragmented"]== "yes" else [],
+    resources:
+        write_slots = 1
     threads: 1
     shell:
         """
@@ -191,6 +193,7 @@ if [ -n "$FRAG" ] ; then
 fi
 
 # for complete busco genes
+if compgen -G "results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.faa" > /dev/null; then
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/single_copy_busco_sequences/*.faa; do
     # copy aminoacids
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
@@ -198,7 +201,9 @@ for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequ
         sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
         sed -i 's/:/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
+fi
 
+if compgen -G "results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.faa" > /dev/null; then
 for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequences/multi_copy_busco_sequences/*.faa; do
     # copy amino acids
     cp ${{file}} {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
@@ -206,7 +211,7 @@ for file in results/busco/{wildcards.species}/run_{wildcards.lineage}/busco_sequ
     sed -i 's/|/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
     sed -i 's/:/_/g' {params.phylo_dir}/{wildcards.species}_$(basename ${{file}})
 done
-
+fi
 """
 
 #### here we added minimum number of busco genes per sample... 
@@ -389,7 +394,7 @@ done )&>{log}
 
 def process_genetrees(wildcards):
     checkpoint_output = checkpoints.collect_gene_trees.get(**wildcards).output[0]
-    return expand("results/genetrees/{busco_EOG}_aa.treefile",
+    return expand("results/phylo/busco_aa_gene_trees/{busco_EOG}_aa.treefile",
            busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa.treefile",)).busco_EOG)
 
 ### we can use this process_genetrees as input for the paralogous rule to make sure that only non-empty trees are passed... 
@@ -401,6 +406,22 @@ rule check:
         """
 echo "all trees ready to process... "
 """
+
+def aggregate_EOGs_genetrees(wildcards):
+    checkpoint_output = checkpoints.collect_gene_trees.get(**wildcards).output[0]
+    return expand(os.path.join("phylo/genetree/{busco_EOG}_genetree.treefile"),
+           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}.fas",)).busco_EOG)
+
+
+onsuccess:
+    print("Workflow finished successfully!\nThank you for using uscophy.")
+#    print("Generating report...")
+#    shell("snakemake --report report.zip")
+    print("Done!")
+
+onerror:
+    print("An error occurred!")
+    print("See the log file for more details ...")
 ###
 
 ## Rule for paralogous filtering (reated by Nikita)
@@ -414,7 +435,7 @@ rule paralogous_filtering:
         alignment_file="results/phylo/busco_aa_alignments_trim/{busco_EOG}_aa.fasta"
     output:
         adjusted_alignment="results/phylo/busco_aa_alignments_filtered/{busco_EOG}_aa_adjusted.fasta",
-        paralog_alignment="results/phylo/busco_aa_alignments_filtered/{busco_EOG}_aa_paralog.fasta"
+        paralog_alignment="results/phylo/busco_aa_alignments_filtered/{busco_EOG}_aa_paralog.fasta",
         paralog_stats="results/phylo/busco_aa_alignments_filtered/{busco_EOG}_aa_paralog.stats"
     threads: 1
     log:
@@ -428,33 +449,34 @@ rule paralogous_filtering:
 ( python3 ./scripts/Paralogous_filtering.py {input.tree_file} {input.alignment_file} {output.adjusted_alignment} {output.paralog_alignment} {output.paralog_stats}) &> {log}
 """
 
-rule clean_header:
+rule clean_header_adjusted:
     input:
         "results/phylo/busco_aa_alignments_filtered/{busco_EOG}_aa_adjusted.fasta"
     output:
         "results/phylo/busco_aa_alignments_filtered_renamed/{busco_EOG}_aa_adjusted.fasta"
+    threads: 1
+    log:
+        "results/logs/rename_adjusted.{busco_EOG}.log"
     shell:
         """
 # split the header and only keep the first two parts of the name
 awk '/^>/ {{split(substr($0,2),a,"_"); print ">"a[1]"_"a[2]}} !/^>/ {{print}}' {input} > {output}
 """
 
-
-def get_all_paralogtrees(wildcards):
+def get_all_filtered_alignments(wildcards):
     checkpoint_output = checkpoints.collect_busco.get(**wildcards).output[0]
-    return expand("results/phylo/busco_aa_adjusted_trees/{busco_EOG}_aa_adjusted.treefile",
+    return expand("results/phylo/busco_aa_alignments_filtered_renamed/{busco_EOG}_aa_adjusted.fasta",
            busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa.fasta",)).busco_EOG)
 
-
-checkpoint collect_adjusted_trees:
+checkpoint collect_filtered_alignments:
     input:
-        get_all_paralogtrees
+        get_all_filtered_alignments
     output:
-        directory("results/adjustedtrees")
+        directory("results/filtered_alignments")
     threads:
          1
     log:
-       "results/logs/collect_adjustedtrees.log"
+       "results/logs/collect_filtered_alignments.log"
     shell:
        """
 [ ! -d {output} ] && mkdir -p {output}
@@ -468,60 +490,29 @@ checkpoint collect_adjusted_trees:
 done )&>{log}
 """
 
-def process_adjustedtrees(wildcards):
-    checkpoint_output = checkpoints.collect_adjusted_trees.get(**wildcards).output[0]
-    return expand("results/adjustedtrees/{busco_EOG}_aa_adjusted.treefile",
-           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa_adjusted.treefile",)).busco_EOG)
+def process_filtered_alignments(wildcards):
+    checkpoint_output = checkpoints.collect_filtered_alignments.get(**wildcards).output[0]
+    return expand("results/phylo/busco_aa_alignments_filtered_renamed/{busco_EOG}_aa_adjusted.fasta",
+           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa_adjusted.fasta",)).busco_EOG)
 
 ### we can use this process_genetrees as input for the paralogous rule to make sure that only non-empty trees are passed... 
 
 rule check_adjusted:
-    input: process_adjustedtrees
-    output: touch("results/adjustedtrees.ok")
+    input: process_filtered_alignments
+    output: touch("results/filtered_alignments.ok")
     shell:
         """
 echo "all trees ready to process... "
 """
 ## Things left to do :
-### Add multi-copy genes and implement a procedure for choosing the paralogs
-# Procedure for choosing paralog :
-
-### Add the option to run busco with the --augustus argument. There needs to be some change with the augustus config in the singularity image
-#(Lead by the Australian team)
 
 ### Modularise the pipeline to help tidy it up and allow for plug-and-play configuration
 
 ### Tidy up the conda envs - at the moment these have no version numbers. They should be consistent with the singularity/docker images.
 
-### Add the end of the code (supermatrix and busco_iqtree)
-
-##added this to clean headers. the additional information is not needed and will lead to problem in the species tree reconstruction.
-### only keep the species name. This should be done with the alignments after the paralog filter
-
-rule clean_header:
-    input:
-        "results/phylo/busco_aa_alignments/{busco_EOG}_aa.fasta"
-    output:
-        "results/phylo/busco_aa_alignments/{busco_EOG}_aa.clean.fasta"
-    shell:
-        """
-# split the header and only keep the first two parts of the name
-awk '/^>/ {{split(substr($0,2),a,"_"); print ">"a[1]"_"a[2]}} !/^>/ {{print}}' {input} > {output}
-"""
-
-
-## Add supermatrix construction and run iqtree
-
-##################modified this
-## TODO : Aggregate outputs of paralogous_filtering for the supermatrix
-def aggregate_EOGs_aa(wildcards):
-    checkpoint_output = checkpoints.collect_busco.get(**wildcards).output[0]
-    return expand("results/phylo/busco_aa_alignments/{busco_EOG}_aa.clean.fasta",
-           busco_EOG=glob_wildcards(os.path.join(checkpoint_output, "{busco_EOG}_aa.fasta",)).busco_EOG)
-
 rule busco_supermatrix:
     input:
-        aggregate_EOGs_aa 
+        get_all_filtered_alignments 
     output:
         matrix="results/phylo/supermatrix_aa.fasta",
         partitions="results/phylo/partitions_aa.txt"
@@ -556,8 +547,6 @@ rule busco_iqtree:
         """
 ( iqtree -s {input.sequence} --prefix {params.out_prefix} -T AUTO --threads-max {threads} -m {params.model} -msub nuclear -B 1000 -alrt 1000 ) &> {log}
         """
-# -m {params.model}
-
 
 rule overview:
     input:
@@ -588,9 +577,6 @@ onsuccess:
 onerror:
     print("An error occurred!")
     print("See the log file for more details ...")
-
-
-
 
 ## The nt steps of the pipeline are currently commented out.
 # Then, it should be integrated again with the output of paralogous filtering.

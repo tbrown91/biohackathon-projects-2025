@@ -31,6 +31,9 @@ This workflow is a snakemake workflow for benchmarking BUSCO genes in phylogenom
 ### Run the pipeline:
 
 1. [Clone this repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
+`snakemake --use-conda --cores 40 --resources write_slots=1`
+
+`snakemake --cores 40 --resources write_slots=1 --use-singularity --singularity-args="--cleanenv --no-home --bind /path/to/cwd/"`
 
 2. Download and organized the test input data.
    
@@ -93,13 +96,13 @@ You can use this workflow with conda or singularity / apptainer.
 
 6. Run the worflow
    
-`snakemake --use-conda --cores 40 #--conda-frontend conda`
+`snakemake --use-conda --cores 40 --resources write_slots=1`
 
 #### If you are using it with singularity / apptainer :
 
 4. Run the workflow
    
-`snakemake --cores 40 --use-singularity --singularity-args="--cleanenv --no-home --bind /path/to/cwd/"`
+`snakemake --cores 40 --resources write_slots=1 --use-singularity --singularity-args="--cleanenv --no-home --bind /path/to/cwd/"`
 Make sure to update the path to your current working directory (cwd) in the command line above
 
 

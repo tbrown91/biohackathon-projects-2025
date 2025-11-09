@@ -232,8 +232,8 @@ def detect_duplication_events(t,al_f,aoutfile,poutfile):
                 print(ev.in_seqs)
                 print(ev.out_seqs)
                 #outparalogs_removed_per_gene += deal_with_outparalogs(ev.in_seqs,ev.out_seqs,aoutfile,poutfile)
-                paralogs_removed.extend(deal_with_outparalogs(my_inparalogy,al_f))
-                outparalogs_removed_per_gene+=len(deal_with_outparalogs(my_inparalogy,al_f))
+                paralogs_removed.extend(deal_with_outparalogs(ev.in_seqs,ev.out_seqs,al_f))
+                outparalogs_removed_per_gene+=len(deal_with_outparalogs(ev.in_seqs,ev.out_seqs,al_f))
 
         else:
 
@@ -250,7 +250,7 @@ def detect_duplication_events(t,al_f,aoutfile,poutfile):
     return inparalogs_removed_per_gene, outparalogs_removed_per_gene
 
 def view_tree(tfile, afile, aoutfile, poutfile, soutfile):
-    create_output_folders()
+    #create_output_folders()
     # get the lists of all files in the directories
     ## tree_list = os.listdir(tfile)
     ## alignment_list = os.listdir(afile)
