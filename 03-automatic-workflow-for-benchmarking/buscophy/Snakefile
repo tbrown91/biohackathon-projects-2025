@@ -127,7 +127,7 @@ rule get_nt:
     shell:
         """
 
-#[ ! -d {params.phylo_dir} ] && mkdir -p {params.phylo_dir}
+[ ! -d {params.phylo_dir} ] && mkdir -p {params.phylo_dir}
 
 # for fragmented genes
 FRAG={params.fragmented}
