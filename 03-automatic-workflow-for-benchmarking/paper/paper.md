@@ -7,13 +7,61 @@ tags:
   - Snakemake
   - Galaxy
 authors:
-  - name: First Author
+  - name: Julian Chiu
     affiliation: 1
-    role: Writing – original draft
-  - name: Last Author
-    orcid: 0000-0000-0000-0000
+    orcid: 0009-0008-2264-0056
+  - name: Solenne Correard
+    orcid: 0000-0002-0554-5443
+    affiliation: 3
+  - name: Thomas Crow
+    orcid: 0009-0004-1195-0287
+    affiliation: 4
+  - name: Tom Brown
+    orcid: 0000-0001-8293-4816
     affiliation: 2
-    role: Conceptualization, Writing – review & editing
+  - name: Anestis Gkanogiannis
+    orcid: 0000-0002-6441-0688
+    affiliation: 5
+  - name: George He
+    orcid: 0009-0002-7417-8998
+    affiliation: 5
+  - name: Iker Irisarri
+    orcid: 0000-0002-3628-1137
+    affiliation: 5
+  - name: Nikita Kulikov
+    orcid: 0000-0002-2566-6197
+    affiliation: 5
+  - name: Nikita Kulikov
+    orcid: 0000-0002-2566-6197
+    affiliation: 5
+  - name: Tereza Manousaki
+    orcid: 0000-0001-7518-0542
+    affiliation: 5
+  - name: Sebastian Martin
+    orcid: 0000-0003-3171-4420
+    affiliation: 5
+  - name: Rafał Miłodrowski
+    orcid: 0009-0002-4040-1231
+    affiliation: 5
+  - name: Cleopatra Petrohilos
+    orcid: 0000-0002-8675-2726
+    affiliation: 5
+  - name: Gareth Price
+    orcid: 0000-0003-2439-8650
+    affiliation: 5
+  - name: Joy (Uditi) Shah
+    affiliation: 5
+  - name: Nefeli Kleopatra Venetsianou
+    orcid: 0009-0004-2472-2056
+    affiliation: 5
+  - name: Robert M. Waterhouse
+    orcid: 0000-0003-4199-9052
+    affiliation: 5
+  - name: Jia Zhang
+    orcid: 0000-0003-1161-4836
+    affiliation: 5
+
+
 affiliations:
   - name: First Affiliation
     index: 1
@@ -37,201 +85,40 @@ authors_short: First Author \emph{et al.}
 
 # Introduction
 
-As part of the BioHackathon Europe 2023, we here report on our project "Automatic workflow for benchmarking BUSCO genes for phylogenomics", where we aimed to design an end-to-end pipeline which identified gene sequences within given genomes, mapped orthologous genes to each other across species, performed a filtering of paralogs and then created a species tree from these filtered alignments.
+As part of the BioHackathon Europe 2025, we report on our project "Automatic workflow for benchmarking BUSCO genes for phylogenomics", where we aimed to design an end-to-end pipeline which identified gene sequences within given genomes, mapped orthologous genes to each other across species, performed a filtering of paralogs and then created a species tree from these filtered alignments.
 
-Phylogenomics is a central aspect of biodiversity genomics, as it reveals the relationships among organisms and key evolutionary processes such as introgression and gene flow. Genome-scale datasets are increasingly a reality in phylogenomics due to the availability of genomes for an ever-growing number of species. BUSCO datasets (universal single-copy orthologs) have become standard in assessing genome assembly completeness and are fully integrated into the pipelines of large genome consortia such as ERGA. Due to their low-copy nature, BUSCO genes are also increasingly used in phylogenomics, from genome skimming data to high-quality chromosome-scale genomes. Yet, their phylogenetic performance has not been thoroughly explored. Preliminary analyses show that BUSCO genes can recover robust phylogenetic relationships, but their single-copy nature is challenged: most BUSCO genes display varying levels of paralogy when using biodiverse species sets, and failure to account for this can negatively affect phylogenetic reconstruction.
+Phylogenomics is a central aspect of biodiversity genomics, as it reveals the relationships among organisms and key evolutionary processes such as introgression and gene flow. Genome-scale datasets are increasingly a reality in phylogenomics due to the availability of genomes for an ever-growing number of species. BUSCO datasets (universal single-copy orthologs [@Tegenfeldt2024] ) have become standard in assessing genome assembly completeness and are fully integrated into the pipelines of large genome consortia such as ERGA. Due to their low-copy nature, BUSCO genes are also increasingly used in phylogenomics, from genome skimming data to high-quality chromosome-scale genomes. Yet, their phylogenetic performance has not been thoroughly explored. Preliminary analyses show that BUSCO genes can recover robust phylogenetic relationships, but their single-copy nature is challenged: most BUSCO genes display varying levels of paralogy when using biodiverse species sets, and failure to account for this can negatively affect phylogenetic reconstruction.
 
-This BioHackathon aims to build an automatic phylogenomics pipeline using the output of the BUSCO software. Contrary to existing pipelines, we aim to explicitly resolve paralogy events, thereby resulting in larger and more informative datasets. This pipeline will be used to benchmark the phylogenetic performance of the newly defined BUSCO lineage datasets, identifying not only the prevalence and evolutionary depth of the various paralogs but also resolving them for improved phylogenetic utility of BUSCO genes. This project will result in a fully-fledged FAIR-compliant phylogenomics pipeline based on BUSCO and an assessment of the phylogenetic performance of new BUSCO gene sets (version odb12).
+This  project aimed to build an automatic phylogenomics pipeline using the output of the BUSCO software. Contrary to existing pipelines, we aimed to explicitly resolve paralogy events, thereby resulting in larger and more informative datasets. This pipeline will be used to benchmark the phylogenetic performance of the newly defined BUSCO lineage datasets, identifying not only the prevalence and evolutionary depth of the various paralogs but also resolving them for improved phylogenetic utility of BUSCO genes. This project aimed to result in a fully-fledged FAIR-compliant phylogenomics pipeline based on BUSCO and an assessment of the phylogenetic performance of new BUSCO gene sets (version odb12).
 
-## Meeting information
+# Methodology
 
-If you want to submit a preprint to BioHackrXiv, first check if your meeting is registered. You can find a list
-of meetings [here](https://index.biohackrxiv.org/meetings). If your meeting is missing, please contact your meeting
-organizers. The above list also provides information on the YAML fields with information about the meeting.
+During the BioHackathon, we aimed to adapt an existing Snakemake pipeline called [buscophy](https://gitlab.leibniz-lib.de/smartin/buscophy.git), which generated phylogenetic trees of species based on identified single-copy BUSCO genes. Our main aims were:
 
-The following fields need to be given:
+* Ensure the pipeline is fully FAIR and deployable on all computational systems
 
-```YAML
-biohackathon_name: "BioHackathon Europe 2025"
-biohackathon_url:   "https://biohackathon-europe.org/"
-biohackathon_location: "Bad Saarow, Germnay, 2025"
-group: Project 03
-git_url: https://github.com/elixir-europe/biohackathon-projects-2025/tree/main/03-automatic-workflow-for-benchmarking/
-```
+* Add an additional paralog filtering step, to allow the inclusion of multi-copy BUSCO genes in the phylogentic reconstructions
 
-The [BioHackrXiv meeting pages](https://index.biohackrxiv.org/meetings) provide content to use for the first
-three fields. The `git_url:` field must have the link to the GitHub repository with your preprint (draft).
+To address the first step, we modified existing conda yamls and containers to ensure that consistent versions were used, independent of which software management system was used, and that tools were readily available in Galaxy. The latter point required building wrappers for BUSCO version 6, pal2nal and amas within the Galaxy Australia platform.
 
-## Author information
+The addition of the paralog filtering step required the construction of individual gene trees, instead of immediately concatentating alignments into a supermatrix, and then processing the alignments and gene trees via a separate rule. The filtered alignments would then be used to construct a supermatrix and the ultimate species tree (Fig. 1).
 
-Information about the authors is given in the [YAML](https://en.wikipedia.org/wiki/YAML) format at the top of this template.
-For authors you provide their names, their affiliations. That is the minimum, but as BioHackrXiv is moving to a situation
-where more metadata is shared, and used by, for example, EuropePMC, adding additional information ie encouraged.
+![Proposed pipeline structure. Highlighted in the box are the rules that diverged from the buscophy pipeline and needed to be input.](./workflow.png){ width=200px }
 
-BioHackathons is about hacking together, and the minimal number of authors for reports is two. This makes a minimal example
-look like this:
+## Results
 
-```yaml
-authors:
-  - name: First Author
-    affiliation: 1
-  - name: Last Author
-    affiliation: 2
-affiliations:
-  - name: First Affiliation
-    index: 1
-  - name: ELIXIR Europe
-    index: 2
-```
+Table: Pull Requests detailing tools requiring Galaxy wrappers
 
-### Author identifiers
-
-Ideally, authors provide their [ORCID](https://orcid.org/) identifier. For affiliations, It is added with the `orcid:` field.
-So, and author record would look like this:
-
-```yaml
-authors:
-  - name: First Author
-    affiliation: 1
-    orcid: 0000-0000-0000-0000
-```
-
-### Research Organization Registry identifiers
-
-Matching the author identifier, the affiliations can be further specified with the
-[Research Organization Registry](https://ror.org/) (ROR) identifier.
-For example, this is the affiliation identifier can be added with the `ror:` field:
-
-```yaml
-affiliations:
-  - name: ELIXIR Europe
-    ror: 044rwnt51
-    index: 2
-```
-
-### Contributor Role Taxonomy
-
-A last feature since is minimal support for the Contributor Role Taxonomy (CRediT). You
-can specify the role of authors in writing the report with the `role:` field. However,
-the authors are responsible for selection the right terms from [CRediT](https://credit.niso.org/).
-An example looks like this:
-
-```yaml
-authors:
-  - name: First Author
-    affiliation: 1
-    orcid: 0000-0000-0000-0000
-    role: Conceptualization, Writing – review & editing
-```
-
-### A full examples
-
-A full example then has this structure:
-
-```yaml
-authors:
-  - name: First Author
-    affiliation: 1
-    role: Writing – original draft
-  - name: Last Author
-    orcid: 0000-0000-0000-0000
-    affiliation: 2
-    role: Conceptualization, Writing – review & editing
-affiliations:
-  - name: First Affiliation
-    index: 1
-  - name: ELIXIR Europe
-    ror: 044rwnt51
-    index: 2
-```
-
-# Formatting
-
-This document use Markdown and you can look at [this tutorial](https://www.markdowntutorial.com/).
-
-## Subsection level 2
-
-Please keep sections to a maximum of only two levels.
-
-## Tables
-
-Tables can be added in the following way, though alternatives are possible:
-
-```markdown
-Table: Note that table caption is automatically numbered and should be
-given before the table itself.
-
-| Header 1 | Header 2 |
+| Tool | URL |
 | -------- | -------- |
-| item 1 | item 2 |
-| item 3 | item 4 |
-```
+| pal2nal | https://github.com/galaxyproject/tools-iuc/pull/7444 |
+| amas | https://github.com/galaxyproject/tools-iuc/pull/7443 |
+| BUSCO | https://github.com/galaxyproject/tools-iuc/pull/7139 |
 
-This gives:
-
-Table: Note that table caption is automatically numbered and should be
-given before the table itself.
-
-| Header 1 | Header 2 |
-| -------- | -------- |
-| item 1 | item 2 |
-| item 3 | item 4 |
-
-## Figures
-
-![Proposed pipeline structure](./workflow_proposal_20251021.jpg){ width=50px }
-
-
-# Other main section on your manuscript level 1
-
-Lists can be added with:
-
-1. Item 1
-2. Item 2
-
-# Citation Typing Ontology annotation
-
-You can use [CiTO](http://purl.org/spar/cito/2018-02-12) annotations, as explained in [this BioHackathon Europe 2021 write up](https://raw.githubusercontent.com/biohackrxiv/bhxiv-metadata/main/doc/elixir_biohackathon2021/paper.md) and [this CiTO Pilot](https://www.biomedcentral.com/collections/cito).
-Using this template, you can cite an article and indicate _why_ you cite that article, for instance DisGeNET-RDF [@citesAsAuthority:Queralt2016].
-
-The syntax in Markdown is as follows: a single intention annotation looks like
-`[@usesMethodIn:Krewinkel2017]`; two or more intentions are separated
-with colons, like `[@extends:discusses:Nielsen2017Scholia]`. When you cite two
-different articles, you use this syntax: `[@citesAsDataSource:Ammar2022ETL; @citesAsDataSource:Arend2022BioHackEU22]`.
-
-Possible CiTO typing annotation include:
-
-* citesAsDataSource: when you point the reader to a source of data which may explain a claim
-* usesDataFrom: when you reuse somehow (and elaborate on) the data in the cited entity
-* usesMethodIn
-* citesAsAuthority
-* citesAsEvidence
-* citesAsPotentialSolution
-* citesAsRecommendedReading
-* citesAsRelated
-* citesAsSourceDocument
-* citesForInformation
-* confirms
-* documents
-* providesDataFor
-* obtainsSupportFrom
-* discusses
-* extends
-* agreesWith
-* disagreesWith
-* updates
-* citation: generic citation
-
-
-# Results
-
+![Mammalian tree](./mammal_tree.png){ width=200px }
 
 # Discussion
 
-...
-
 ## Acknowledgements
-
-...
 
 ## References
