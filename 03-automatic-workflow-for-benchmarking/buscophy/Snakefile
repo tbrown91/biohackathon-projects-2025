@@ -25,7 +25,7 @@ localrules: all
 rule all:
     input:
         #"results/phylo/overview_abspres.csv", # make sure script is in environment
-        #"results/busco/summary/busco_summary.done",
+        "results/busco/summary/busco_summary.done",
         "results/phylo/busco_phylo.treefile"
         #"results/phylo/busco_phylo_nt.treefile"
 
